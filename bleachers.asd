@@ -10,4 +10,5 @@
 	       #:cl-cffi-gtk #:cl-ppcre #:yason
 	       #:alexandria)
   :components ((:file "package")
+	       (:file "util")
                (:file "bleachers")))
