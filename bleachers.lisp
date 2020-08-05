@@ -2,7 +2,7 @@
 
 (in-package #:bleachers)
 
-;; make this ((team-id (:game game-id :score team-score)))
+;; make this KEY: teamid  VALUE: game object
 (defvar *scores* (make-hash-table :test 'equal :size 14))
 (defvar *team-names* nil)
 (defvar *current-game-id* nil)
@@ -11,17 +11,25 @@
 (defun main ()
   
   ;; get a mapping for the team names
-  (loop initially (setf *team-names* nil)
-    for team in (blaseball:get-all-teams)
-	do
-	   (setf (gethash (blaseball:id team) *scores*) nil)
-	   (push (cons (blaseball:id team)
-		       (blaseball:full-name team))
-		 *team-names*))
+  (handler-case
+      (loop initially (setf *team-names* nil)
+	    for team in (blaseball:get-all-teams)
+	    do
+	       (setf (gethash (blaseball:id team) *scores*) nil)
+	       (push (cons (blaseball:id team)
+			   (blaseball:full-name team))
+		     *team-names*))
+    (error ()
+      (return-from main)))
   
   (let ((ws (blaseball-live:blaseball-websocket #'process-updates)))
-    ;(wsd:start-connection ws)
-
+    (handler-case 
+	(wsd:start-connection ws)
+      (error ()
+	(wsd:remove-all-listeners ws)
+	(wsd:close-connection ws)
+	(return-from main)))
+    
     (within-main-loop
       (let* ((builder (gtk-builder-new-from-file
 		       (namestring (asdf:system-relative-pathname :bleachers "resources/interface.glade"))))
@@ -34,22 +42,12 @@
 	     (update-label (gtk-builder-get-object builder "lblUpdate"))
 	     (ball-label (gtk-builder-get-object builder "lblBalls"))
 	     (out-label (gtk-builder-get-object builder "lblOuts"))
-	     (strike-label (gtk-builder-get-object builder "lblStriks"))
+	     (strike-label (gtk-builder-get-object builder "lblStrikes"))
 	     (inning-label (gtk-builder-get-object builder "lblInning")))
 
-	(g-signal-connect window "destroy"
-			  (lambda (w)
-			    (declare (ignore w))
-			    (leave-gtk-main)))
+	(g-signal-connect window "destroy" #'quit-app)
 
-	(g-signal-connect listbox "row-selected"
-			  (lambda (w row)
-			    (declare (ignore w))
-			    (when row 
-			      (format t "~A"
-				      (gtk-label-text (gtk-bin-get-child
-						       (change-class row 'gtk-bin))))
-			      (force-output))))
+	(g-signal-connect listbox "row-selected" #'process-selected)
 
 	;; sets up a thread to rotate the update messages
 	(let ((message-counter 0)
@@ -71,38 +69,58 @@
 								  :timeout 10)
 		 when update
 		   do
-		      (loop for game across update
+		      (loop for game in update
 			    do
 			       (setf (gethash (blaseball:away-team game) *scores*)
-				     (list :game (blaseball:id game)
-					   :score (blaseball:away-score game))
+				     game
 				     
 				     (gethash (blaseball:home-team game) *scores*)
-				     (list :game (blaseball:id game)
-					   :score (blaseball:home-score game)))))))
+				     game)))))
+
+	(after-every (.5 :seconds :async t)
+	  (when *current-game-id*
+	    (let* ((game (get-team-score *current-game-id*))
+		   (away (team-info-from-game game :away t))
+		   (home (team-info-from-game game)))
+	      (setf (gtk-label-text away-team) (convert-id-to-name (getf away :id))
+		    (gtk-label-text away-score) (stringify (getf away :score))
+		    
+		    (gtk-label-text home-team) (convert-id-to-name (getf home :id))
+		    (gtk-label-text home-score) (stringify (getf home :score))
+
+		    (gtk-label-text inning-label)
+		    (generate-inning-label (blaseball:inning game)
+					   (blaseball:top-of-inning game))
+
+		    (gtk-window-title window)
+		    (generate-window-title game)))))
       
 	;; populate the listbox with team names for now
 	;; eventually moving to X vs Y
 	(loop for team in *team-names*
 	      do (gtk-list-box-prepend listbox
 				       (gtk-label-new (cdr team))))
-	(gtk-widget-show-all window)
-;;      (loop while (eq (wsd:ready-state ws) :open)
-;;	    do (sleep 1)
-;;	       
-;;	    when *update-gui*
-;;	      do (break)
-;;	    )
-	))
+	(gtk-widget-show-all window)))
+    (join-gtk-main)
     (wsd:remove-all-listeners ws)
     (unless (eq (wsd:ready-state ws) :closed)
       (wsd:close-connection ws))))
 
 (defun process-updates (update)
-  (let* ((upd (yason:parse update))
-	 (schedule (and (listp upd)
-			(member "gameDataUpdate" upd :test #'equal)
-			(loop for game across (gethash "schedule" (cadr upd))
-			      collect (json-mop:json-to-clos game 'blaseball::game)))))
-    (when schedule 
+  (let* ((yason:*parse-json-arrays-as-vectors* t)
+	 (upd (yason:parse (ppcre:regex-replace "\\d+(\\[|\\{)" update "\\1")))
+	 (schedule (and (vectorp upd)
+			(find "gameDataUpdate" upd :test #'equal)
+		        (map 'list #'json-to-game (gethash "schedule" (aref upd 1))))))
+    (when schedule
       (safe-queue:mailbox-send-message *update-mailbox* schedule))))
+
+(defun process-selected (w row)
+  (declare (ignore w))
+  (when row 
+    (let* ((team-name (first (str:split " vs " (gtk-label-text
+						(gtk-bin-get-child
+						 (change-class row 'gtk-bin))))))
+	   (game (gethash (convert-name-to-id team-name) *scores*)))
+      (when game
+	(setf *current-game-id* (blaseball:id game))))))
