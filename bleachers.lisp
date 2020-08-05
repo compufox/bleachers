@@ -6,15 +6,16 @@
 (defvar *scores* (make-hash-table :test 'equal :size 14))
 (defvar *team-names* nil)
 (defvar *selected-team* "")
-(defvar *update-gui* nil)
 
 (defun main ()
-  (loop for team in (blaseball:get-all-teams)
+  (loop initially (setf *team-names* nil)
+    for team in (blaseball:get-all-teams)
 	do
 	   (setf (gethash (blaseball:id team) *scores*) nil)
 	   (push (cons (blaseball:id team)
 		       (blaseball:full-name team))
 		 *team-names*))
+  
   (let ((ws (blaseball-live:blaseball-websocket #'process-updates)))
     ;(wsd:start-connection ws)
 
@@ -26,7 +27,8 @@
 	     (away-team (gtk-builder-get-object builder "lblAwayTeam"))
 	     (away-score (gtk-builder-get-object builder "lblAwayScore"))
 	     (home-team (gtk-builder-get-object builder "lblHomeTeam"))
-	     (home-score (gtk-builder-get-object builder "lblHomeScore")))
+	     (home-score (gtk-builder-get-object builder "lblHomeScore"))
+	     (update-label (gtk-builder-get-object builder "lblUpdate")))
 
 	(g-signal-connect window "destroy"
 			  (lambda (w)
@@ -35,10 +37,19 @@
 
 	(g-signal-connect listbox "row-selected"
 			  (lambda (w row)
+			    (declare (ignore w))
 			    (when row 
 			      (format t "~A"
 				      (gtk-label-text (gtk-bin-get-child
-						       (change-class row 'gtk-bin)))))))
+						       (change-class row 'gtk-bin))))
+			      (force-output))))
+
+	(let ((message-counter 0)
+	     (update-messages (map 'vector #'blaseball:msg (blaseball:get-global-events))))
+	  (after-every (10 :seconds :async t :run-immediately t)
+	    (setf (gtk-label-text update-label)
+		  (aref update-messages (mod (incf message-counter)
+					     (length update-messages))))))
 	
 	(loop for team in *team-names*
 	      do (gtk-list-box-prepend listbox

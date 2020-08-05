@@ -91,6 +91,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">TEAM</property>
+                        <property name="justify">center</property>
                         <attributes>
                           <attribute name="style" value="normal"/>
                           <attribute name="weight" value="bold"/>
@@ -132,6 +133,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Team2</property>
+                        <property name="justify">center</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -156,6 +158,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">SCORE</property>
+                        <property name="justify">center</property>
                         <attributes>
                           <attribute name="weight" value="bold"/>
                         </attributes>
@@ -183,6 +186,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Score1</property>
+                        <property name="justify">center</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
@@ -196,6 +200,7 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Score2</property>
+                        <property name="justify">center</property>
                       </object>
                       <packing>
                         <property name="expand">False</property>
