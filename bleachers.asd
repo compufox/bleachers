@@ -8,7 +8,7 @@
   :serial t
   :depends-on (#:cl-blaseball #:cl-blaseball-streaming
 	       #:cl-cffi-gtk #:cl-ppcre #:yason
-	       #:alexandria)
+	       #:alexandria #:safe-queue #:json-mop)
   :components ((:file "package")
 	       (:file "util")
                (:file "bleachers")))

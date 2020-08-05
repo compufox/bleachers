@@ -2,6 +2,9 @@
 
 (in-package :bleachers)
 
+(declaim (inline get-ticker-messages convert-id-to-name
+		 generate-game-label))
+
 (defun parse-time (amount duration)
   "parses AMOUNT of DURATION into seconds"
   (* amount (cond
@@ -34,3 +37,14 @@ if RUN-IMMEDIATELY is non-nil, runs BODY once before waiting for next invocation
 	`(bt:make-thread
 	  (lambda () ,code))
 	code)))
+
+(defun get-ticker-messages ()
+  (map 'vector #'blaseball:msg (blaseball:get-global-events)))
+
+(defun convert-id-to-name (id)
+  (alexandria:assoc-value *team-names* id :test 'equal))
+
+(defun generate-game-label (game)
+  (format nil "~a vs ~a"
+	  (convert-id-to-name (blaseball:away-team game))
+	  (convert-id-to-name (blaseball:home-team game))))
