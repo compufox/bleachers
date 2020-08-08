@@ -9,7 +9,10 @@
   :depends-on (#:cl-blaseball #:cl-blaseball-streaming
 	       #:cl-cffi-gtk #:cl-ppcre #:yason
 	       #:alexandria #:safe-queue #:json-mop
-	       #:str)
+	       #:str #:with-user-abort #:deploy)
   :components ((:file "package")
 	       (:file "util")
-               (:file "bleachers")))
+               (:file "bleachers"))
+  :build-operation "deploy-op"
+  :build-pathname "bleachers"
+  :entry-point "bleachers:main")
