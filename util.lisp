@@ -41,7 +41,9 @@ if RUN-IMMEDIATELY is non-nil, runs BODY once before waiting for next invocation
 	code)))
 
 (defun get-ticker-messages ()
-  (map 'vector #'blaseball:msg (blaseball:get-global-events)))
+  (handler-case
+      (map 'vector #'blaseball:msg (blaseball:get-global-events))
+    (error () nil)))
 
 (defun convert-id-to-name (id)
   (alexandria:assoc-value *team-names* id :test 'equal))
@@ -55,7 +57,7 @@ if RUN-IMMEDIATELY is non-nil, runs BODY once before waiting for next invocation
 	  (convert-id-to-name (blaseball:home-team game))))
 
 (defun json-to-game (val)
-  (json-mop:json-to-clos val 'blaseball::game))
+  (json-mop:json-to-clos val 'blaseball:game))
 
 (defun quit-app (w)
   (declare (ignore w))
